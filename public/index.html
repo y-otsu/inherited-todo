@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TODOアプリ</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 20px;
+      color: #333;
+    }
+    h1 { font-size: 1.6rem; margin-bottom: 24px; }
+    #add-form {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    #add-form input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    #add-form button {
+      padding: 8px 16px;
+      background: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    #add-form button:hover { background: #357abd; }
+    #todo-list { list-style: none; padding: 0; margin: 0; }
+    #todo-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+    }
+    #todo-list li.completed span {
+      text-decoration: line-through;
+      color: #aaa;
+    }
+    #todo-list li span { flex: 1; }
+    .delete-btn {
+      padding: 4px 10px;
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .delete-btn:hover { background: #c0392b; }
+    #error-msg {
+      color: #e74c3c;
+      margin-bottom: 12px;
+      min-height: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>TODO リスト</h1>
+  <p id="error-msg"></p>
+  <div id="add-form">
+    <input type="text" id="new-title" placeholder="新しいTODOを入力...">
+    <button id="add-btn">追加</button>
+  </div>
+  <ul id="todo-list"></ul>
+
+  <script>
+    // エラーメッセージを表示する
+    function showError(msg) {
+      document.getElementById('error-msg').textContent = msg;
+      setTimeout(() => { document.getElementById('error-msg').textContent = ''; }, 3000);
+    }
+
+    // TODO一覧を取得してDOMに描画する
+    async function loadTodos() {
+      try {
+        const res = await fetch('/todos');
+        if (!res.ok) throw new Error('一覧取得に失敗しました');
+        const todos = await res.json();
+        renderTodos(todos);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    // TODOの配列をリスト要素として描画する
+    function renderTodos(todos) {
+      const list = document.getElementById('todo-list');
+      list.innerHTML = '';
+      todos.forEach(todo => {
+        const li = document.createElement('li');
+        if (todo.completed) li.classList.add('completed');
+
+        // 完了チェックボックス
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = todo.completed;
+        checkbox.addEventListener('change', () => toggleCompleted(todo.id, checkbox.checked));
+
+        // タイトル
+        const span = document.createElement('span');
+        span.textContent = todo.title;
+
+        // 削除ボタン
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '削除';
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.addEventListener('click', () => deleteTodo(todo.id));
+
+        li.appendChild(checkbox);
+        li.appendChild(span);
+        li.appendChild(deleteBtn);
+        list.appendChild(li);
+      });
+    }
+
+    // 新しいTODOを追加する
+    async function addTodo() {
+      const input = document.getElementById('new-title');
+      const title = input.value.trim();
+      if (!title) {
+        showError('タイトルを入力してください');
+        return;
+      }
+      try {
+        const res = await fetch('/todos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || '追加に失敗しました');
+        }
+        input.value = '';
+        await loadTodos();
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    // TODOの完了状態を切り替える
+    async function toggleCompleted(id, completed) {
+      try {
+        const res = await fetch(`/todos/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completed }),
+        });
+        if (!res.ok) throw new Error('更新に失敗しました');
+        await loadTodos();
+      } catch (err) {
+        showError(err.message);
+        await loadTodos(); // チェックボックスの状態を元に戻す
+      }
+    }
+
+    // TODOを削除する
+    async function deleteTodo(id) {
+      try {
+        const res = await fetch(`/todos/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('削除に失敗しました');
+        await loadTodos();
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    // 追加ボタンのイベントリスナーを設定する
+    document.getElementById('add-btn').addEventListener('click', addTodo);
+
+    // Enterキーでも追加できるようにする
+    document.getElementById('new-title').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') addTodo();
+    });
+
+    // 初回読み込み時にTODO一覧を取得する
+    loadTodos();
+  </script>
+</body>
+</html>
