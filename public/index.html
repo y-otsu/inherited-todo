@@ -13,19 +13,22 @@
       color: #333;
     }
     h1 { font-size: 1.6rem; margin-bottom: 24px; }
-    #add-form {
+    #add-form,
+    #search-form {
       display: flex;
       gap: 8px;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
     }
-    #add-form input {
+    #add-form input,
+    #search-form input {
       flex: 1;
       padding: 8px 12px;
       border: 1px solid #ccc;
       border-radius: 4px;
       font-size: 1rem;
     }
-    #add-form button {
+    #add-form button,
+    #search-form button {
       padding: 8px 16px;
       background: #4a90e2;
       color: white;
@@ -34,7 +37,9 @@
       cursor: pointer;
       font-size: 1rem;
     }
-    #add-form button:hover { background: #357abd; }
+    #add-form button:hover,
+    #search-form button:hover { background: #357abd; }
+    #search-form { margin-bottom: 24px; }
     #todo-list { list-style: none; padding: 0; margin: 0; }
     #todo-list li {
       display: flex;
@@ -72,6 +77,10 @@
     <input type="text" id="new-title" placeholder="新しいTODOを入力...">
     <button id="add-btn">追加</button>
   </div>
+  <div id="search-form">
+    <input type="text" id="search-q" placeholder="タイトルで検索...">
+    <button type="button" id="search-btn">検索</button>
+  </div>
   <ul id="todo-list"></ul>
 
   <script>
@@ -81,10 +90,14 @@
       setTimeout(() => { document.getElementById('error-msg').textContent = ''; }, 3000);
     }
 
-    // TODO一覧を取得してDOMに描画する
+    // TODO一覧を取得してDOMに描画する（q があればサーバ側で部分一致検索）
     async function loadTodos() {
       try {
-        const res = await fetch('/todos');
+        const keyword = document.getElementById('search-q').value.trim();
+        const url = keyword
+          ? `/todos?q=${encodeURIComponent(keyword)}`
+          : '/todos';
+        const res = await fetch(url);
         if (!res.ok) throw new Error('一覧取得に失敗しました');
         const todos = await res.json();
         renderTodos(todos);
@@ -182,6 +195,12 @@
     // Enterキーでも追加できるようにする
     document.getElementById('new-title').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') addTodo();
+    });
+
+    // 検索フォーム
+    document.getElementById('search-btn').addEventListener('click', loadTodos);
+    document.getElementById('search-q').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loadTodos();
     });
 
     // 初回読み込み時にTODO一覧を取得する

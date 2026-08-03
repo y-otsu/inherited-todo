@@ -3,17 +3,30 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/connection');
 
-// List all todos
+// List all todos (optional: ?completed=&q=)
 router.get('/', async (req, res) => {
   try {
     const { completed } = req.query;
-    let q = 'SELECT * FROM todos ORDER BY created_at DESC';
-    const p = [];
+    const keyword = req.query.q;
+    const conditions = [];
+    const params = [];
+
     if (completed !== undefined) {
-      q = 'SELECT * FROM todos WHERE completed = $1 ORDER BY created_at DESC';
-      p.push(completed === 'true');
+      params.push(completed === 'true');
+      conditions.push(`completed = $${params.length}`);
     }
-    const result = await db.query(q, p);
+    if (keyword !== undefined && keyword !== '') {
+      params.push(`%${keyword}%`);
+      conditions.push(`title ILIKE $${params.length}`);
+    }
+
+    let sql = 'SELECT * FROM todos';
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ');
+    }
+    sql += ' ORDER BY created_at DESC';
+
+    const result = await db.query(sql, params);
     res.status(200).json(result.rows);
   } catch (e) {
     res.status(500).json({ error: 'Internal server error' });
